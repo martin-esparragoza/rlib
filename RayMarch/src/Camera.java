@@ -1,12 +1,11 @@
-// TODO ITS SQUISHED? WHY?
-// FIXME moiré pattern :(
+import org.jetbrains.annotations.Nullable;
+
+// TODO Its squished because of how far the camera will see a ray (camera type)
 public final class Camera extends Vertex3<Double> {
     private final double fov;
     private final double aspectw;
     private final double aspecth;
     private final double view_distance;
-    // Ignore variable. Just used as an internal access.
-    private Vertex3<Double> pos = new Vertex3<>((double)0, (double)0, (double)0);
 
     /**
      * Create a new camera in the world.
@@ -33,44 +32,8 @@ public final class Camera extends Vertex3<Double> {
      * @return Returns -1 if not colliding (distance if colliding)
      * @param <T> An object
      */
-    private <T extends Object> double raymarch(T[] objects, Vector3d v, double max_distance) throws NullPointerException {
-        double total_distance = 0;
-        while (true) {
-            // Get smallest distance to move
-            double distance = Double.POSITIVE_INFINITY;
-            T closest_object = null;
-            for (T object : objects) {
-                double cur_distance = object.sdf(this.pos);
-                if (cur_distance < distance) {
-                    distance = cur_distance;
-                    closest_object = object;
-                }
-            }
-
-            // System.out.println(total_distance);
-            if (total_distance >= max_distance + Cfg.EPSILON) {
-                return -1;
-            }
-            // We only need to check if it's intersecting with the closest object
-            this.pos = v.move(this.pos, distance);
-            if (closest_object.point_in(this.pos) || distance <= Cfg.EPSILON) {
-                return total_distance;
-            }
-            total_distance += distance;
-        }
-    }
-
-    /**
-     * Does not update the position variable. Useful for when you want to do multiple rays from a point.
-     * @param objects Array of objects
-     * @param v Directional vector (normalzied hopefully)
-     * @param max_distance Max can travel
-     * @param pos Origin
-     * @return Distance (-1 if no collision)
-     * @param <T> An object
-     * @throws NullPointerException
-     */
-    private <T extends Object> double raymarch(T[] objects, Vector3d v, double max_distance, Vertex3<Double> pos) throws NullPointerException {
+    @Nullable
+    private <T extends Object> RayOut<T> raymarch(T[] objects, Vector3d v, double max_distance, Vertex3<Double> pos) throws NullPointerException {
         double total_distance = 0;
         while (true) {
             // Get smallest distance to move
@@ -84,14 +47,13 @@ public final class Camera extends Vertex3<Double> {
                 }
             }
 
-            // System.out.println(total_distance);
             if (total_distance >= max_distance + Cfg.EPSILON) {
-                return -1;
+                return null;
             }
             // We only need to check if it's intersecting with the closest object
-            pos = v.move(pos, distance);
+            v.move(pos, distance);
             if (closest_object.point_in(pos) || distance <= Cfg.EPSILON) {
-                return total_distance;
+                return new RayOut<>(total_distance, closest_object, pos);
             }
             total_distance += distance;
         }
@@ -106,7 +68,7 @@ public final class Camera extends Vertex3<Double> {
      * @param <T> Child class
      * @throws NullPointerException
      */
-    public <T extends Object, U extends Object> byte[][][] render(byte[][][] buf, T[] objects, U[] lights) throws NullPointerException {
+    public <T extends Object> byte[][][] render(byte[][][] buf, T[] objects, Light[] lights) throws NullPointerException {
         final double pm = Math.atan((this.aspecth / 2f) / fov);
         final double tm = Math.atan((this.aspectw / 2f) / fov);
 
@@ -117,27 +79,44 @@ public final class Camera extends Vertex3<Double> {
                 double t = tm + (((-tm * 2) / buf[0].length) * x);
                 Vector3d v = new Vector3d(Math.sin(p) * Math.cos(t), Math.sin(p) * Math.sin(t), Math.cos(p));
                 // Reset position
-                this.pos.x = this.x;
-                this.pos.y = this.y;
-                this.pos.z = this.z;
-                double distance = raymarch(objects, v, this.view_distance);
-
-                // Check if it is a shadow or not
-                if (distance >= Cfg.EPSILON) {
+                Vertex3<Double> pos = new Vertex3<>(this);
+                RayOut<T> out = raymarch(objects, v, this.view_distance, pos);
+                if (out != null) {
+                    Vector3d normal = new Vector3d(
+                        out.endpos.x - out.collider.x,
+                        out.endpos.y - out.collider.y,
+                        out.endpos.z - out.collider.z
+                    );
+                    normal.normalize();
                     // Send a ray from the ending position to the light
-                    for (U light : lights) {
-                        v = new Vector3d(light.x - this.x, light.y - this.y, light.z - this.z);
+                    for (Light light : lights) {
+                        v = new Vector3d(light.x - pos.x, light.y - pos.y, light.z - pos.z);
                         v.normalize();
-                        // Move it a LITTLE so it doesn't instantly see itself as an obstruction
-                        // (Allows it to move instead of being locked in place)
-                        // Afaik this value is small enough to not add that much noise to the final
-                        // image but... FIXME
-                        this.pos = v.move(this.pos, Cfg.EPSILON);
-                        distance = raymarch(objects, v, Util.distance(light, this.pos), this.pos);
-                        if (distance < 0) {
-                            buf[y][x][0] = (byte)255;
+                        Vertex3<Double> l_pos = new Vertex3<>(pos);
+                        v.move(l_pos, Cfg.EPSILON);
+                        out = raymarch(objects, v, Util.distance(light, l_pos), l_pos);
+                        double dif = v.dot(normal);
+                        /*
+                         * TODO
+                         *  Multiple lights
+                         *  Shadow bias
+                         *  Materials
+                         *  Light color
+                         *  Other stuff
+                         */
+                        if (dif < Cfg.EPSILON) {
+                            dif = 0.0;
+                        }
+                        buf[y][x][0] = (byte)(255 * dif);
+                        if (out == null) { // Unobstructed
+                            buf[y][x][0] /= 2;
                         }
                     }
+                } else {
+                    // TODO actual background color
+                    buf[y][x][0] = (byte)181;
+                    buf[y][x][1] = (byte)176;
+                    buf[y][x][2] = (byte)255;
                 }
             }
         }

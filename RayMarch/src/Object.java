@@ -1,6 +1,8 @@
 public abstract class Object extends Vertex3<Double> {
-    public Object(double x, double y, double z) {
+    public final Material mat;
+    public Object(double x, double y, double z, Material mat) {
         super(x, y, z);
+        this.mat = mat;
     }
 
     /**

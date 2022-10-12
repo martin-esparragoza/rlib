@@ -1,8 +1,8 @@
 public final class Sphere extends Object {
     private final double radius;
 
-    public Sphere(double x, double y, double z, double radius) {
-        super(x, y, z);
+    public Sphere(double x, double y, double z, Material mat, double radius) {
+        super(x, y, z, mat);
         this.radius = radius;
     }
 

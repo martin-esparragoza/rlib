@@ -6,13 +6,16 @@ public final class Main {
         // Clear the file
         new FileWriter("out.ppm", false).close();
         FileWriter fw = new FileWriter("out.ppm", true);
-        byte[][][] buf = new byte[675][1200][3];
+        byte[][][] buf = new byte[500][500][3];
 
-        Camera c = new Camera(0f, 0f, 0f, 10f, 16, 9, 500f);
-        buf = c.render(
+        Camera c = new Camera(0f, 0f, 0f, 10f, 10, 10, 500f);
+        c.render(
             buf,
-            new Sphere[]{new Sphere(5, 0, 0, 2)},
-            new Light[]{new Light(1, -4, 5)}
+            new Sphere[]{
+                new Sphere(8, -2, 0, new Material((byte)100, (byte)227, (byte)134), 1.5),
+                new Sphere(9, 2, 0, new Material((byte)233, (byte)50, (byte)66), 1.5)
+            },
+            new Light[]{new Light(1, 0, 3, (byte)255, (byte)255, (byte)227, 2)}
         );
 
         // Write it to a .ppm file

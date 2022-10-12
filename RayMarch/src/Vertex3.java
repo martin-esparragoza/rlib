@@ -8,4 +8,10 @@ public class Vertex3<T extends Number> {
         this.y = y;
         this.z = z;
     }
+
+    public Vertex3(Vertex3<T> v) {
+        this.x = v.x;
+        this.y = v.y;
+        this.z = v.z;
+    }
 }
