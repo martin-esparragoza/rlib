@@ -1,7 +1,20 @@
+/* IMPORTANT
+ - The meat of the engine.
+ - The reason why colors are to 0-1
+   doubles instead of 0-255 8-bit
+   integers is because a lot of
+   color math is WAY easier with
+   0-1 doubles. This is able to run
+   on my baby chromebook so your computer
+   probably has enough memory to spare.
+ */
+
 import org.jetbrains.annotations.Nullable;
 
 // TODO Its squished because of how far the camera will see a ray (camera type)
 public final class Camera extends Vertex3<Double> {
+    public final double yaw;
+    public final double pitch;
     private final double fov;
     private final double aspectw;
     private final double aspecth;
@@ -17,12 +30,23 @@ public final class Camera extends Vertex3<Double> {
      * @param aspecth Aspect ratio height
      * @param view_distance How far the camera sees before assuming that nothing is there
      */
-    public Camera(double x, double y, double z, double fov, int aspectw, int aspecth, double view_distance) {
+    public Camera(
+            double x,
+            double y,
+            double z,
+            double yaw,
+            double pitch,
+            double fov,
+            int aspectw,
+            int aspecth,
+            double view_distance) {
         super(x, y, z);
         this.fov = fov;
         this.aspectw = aspectw;
         this.aspecth = aspecth;
         this.view_distance = view_distance;
+        this.yaw = yaw;
+        this.pitch = pitch;
     }
 
     /**
@@ -68,7 +92,7 @@ public final class Camera extends Vertex3<Double> {
      * @param <T> Child class
      * @throws NullPointerException
      */
-    public <T extends Object> byte[][][] render(byte[][][] buf, T[] objects, Light[] lights) throws NullPointerException {
+    public <T extends Object> double[][][] render(double[][][] buf, T[] objects, Light[] lights, Environment env) throws NullPointerException {
         final double pm = Math.atan((this.aspecth / 2f) / fov);
         final double tm = Math.atan((this.aspectw / 2f) / fov);
 
@@ -77,46 +101,49 @@ public final class Camera extends Vertex3<Double> {
             double p = ((Math.PI / 2) - pm) + (((pm * 2) / buf.length) * y);
             for (int x = 0; x < buf[0].length; x++) {
                 double t = tm + (((-tm * 2) / buf[0].length) * x);
-                Vector3d v = new Vector3d(Math.sin(p) * Math.cos(t), Math.sin(p) * Math.sin(t), Math.cos(p));
+                Vector3d v = new Vector3d(
+                    Math.sin(p + this.pitch) * Math.cos(t + this.yaw),
+                    Math.sin(p + this.pitch) * Math.sin(t + this.yaw),
+                    Math.cos(p + this.pitch)
+                );
                 // Reset position
                 Vertex3<Double> pos = new Vertex3<>(this);
                 RayOut<T> out = raymarch(objects, v, this.view_distance, pos);
                 if (out != null) {
-                    Vector3d normal = new Vector3d(
-                        out.endpos.x - out.collider.x,
-                        out.endpos.y - out.collider.y,
-                        out.endpos.z - out.collider.z
-                    );
-                    normal.normalize();
-                    // Send a ray from the ending position to the light
+                    Vector3d normal = out.obj.normal(out.endpos);
                     for (Light light : lights) {
-                        v = new Vector3d(light.x - pos.x, light.y - pos.y, light.z - pos.z);
-                        v.normalize();
+                        Vector3d lv = new Vector3d(light.x - pos.x, light.y - pos.y, light.z - pos.z);
+                        lv.normalize();
                         Vertex3<Double> l_pos = new Vertex3<>(pos);
-                        v.move(l_pos, Cfg.EPSILON);
-                        out = raymarch(objects, v, Util.distance(light, l_pos), l_pos);
-                        double dif = v.dot(normal);
-                        /*
-                         * TODO
-                         *  Multiple lights
-                         *  Shadow bias
-                         *  Materials
-                         *  Light color
-                         *  Other stuff
-                         */
+                        lv.move(l_pos, Cfg.DEPTH_BIAS);
+
+                        // Diffuse
+                        double ldistance = Util.distance(light, l_pos);
+                        RayOut<T> out_l = raymarch(objects, lv, ldistance, l_pos);
+                        double dif = lv.dot(normal);
                         if (dif < Cfg.EPSILON) {
                             dif = 0.0;
                         }
-                        buf[y][x][0] = (byte)(255 * dif);
-                        if (out == null) { // Unobstructed
-                            buf[y][x][0] /= 2;
+
+                        if (out_l == null) {
+                            buf[y][x][0] += (dif * light.r * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.r;
+                            buf[y][x][1] += (dif * light.g * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.g;
+                            buf[y][x][2] += (dif * light.b * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.b;
+                        }
+
+                        // Indirect lighting
+                        int depth = 0;
+                        while (depth < Cfg.MAX_BOUNCES) {
+                            for (int i = 0; i < (int) (Cfg.TOTAL_BOUNCES * out.obj.mat.roughness); i++) {
+                                // Make the ray TODO
+                            }
+                            depth++;
                         }
                     }
                 } else {
-                    // TODO actual background color
-                    buf[y][x][0] = (byte)181;
-                    buf[y][x][1] = (byte)176;
-                    buf[y][x][2] = (byte)255;
+                    buf[y][x][0] = env.r * p;
+                    buf[y][x][1] = env.g * p;
+                    buf[y][x][2] = env.b * p;
                 }
             }
         }

@@ -16,4 +16,15 @@ public final class Sphere extends Object {
     public double sdf(Vertex3<Double> p) {
         return Util.distance(this, p) - this.radius;
     }
+
+    @Override
+    public Vector3d normal(Vertex3<Double> p) {
+        Vector3d normal = new Vector3d(
+                p.x - this.x,
+                p.y - this.y,
+                p.z - this.z
+        );
+        normal.normalize();
+        return normal;
+    }
 }

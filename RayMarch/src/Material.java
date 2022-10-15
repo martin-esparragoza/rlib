@@ -1,11 +1,15 @@
 public final class Material {
-    public final byte r;
-    public final byte g;
-    public final byte b;
+    public final double r;
+    public final double g;
+    public final double b;
+    public final double albedo;
+    public final double roughness;
 
-    public Material(byte r, byte g, byte b) {
+    public Material(double r, double g, double b, double albedo, double roughness) {
         this.r = r;
         this.g = g;
         this.b = b;
+        this.albedo = albedo;
+        this.roughness = roughness;
     }
 }
