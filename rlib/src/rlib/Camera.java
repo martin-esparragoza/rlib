@@ -75,6 +75,7 @@ public final class Camera extends Vertex3<Double> {
             }
             // We only need to check if it's intersecting with the closest object
             v.move(pos, distance);
+            // FIXME error at MANY rays
             if (closest_object.point_in(pos) || distance <= Cfg.EPSILON) {
                 return new RayOut<>(total_distance, closest_object, pos);
             }
@@ -85,22 +86,27 @@ public final class Camera extends Vertex3<Double> {
     private <T extends Object> Vertex3<Double> compute_indirect_lighting(int depth, int bounces, Vector3d normal, Vertex3<Double> pos, T[] objects, double distance) throws NullPointerException {
         Vertex3<Double> color = new Vertex3<>(0.0, 0.0, 0.0);
         for (int i = 0; i < bounces; i++) {
-            // TODO vector generation is wrong...
+            double p = Math.random() * (Math.PI / 2); // [0, pi/2] (Vertical hemisphere)
+            double t = Math.random() * (2 * Math.PI); // [0, 2pi]
             Vector3d v = new Vector3d(
-                Math.random() * 2 - 1 - normal.x,
-                Math.random() * 2 - 1 - normal.y,
-                Math.random() - normal.z
+                Math.sin(p) * Math.cos(t) + normal.x,
+                Math.sin(p) * Math.sin(t) + normal.y,
+                Math.cos(p) + normal.z
             );
             v.normalize();
             v.move(pos, Cfg.DEPTH_BIAS);
 
             RayOut<T> out = raymarch(objects, v, this.view_distance, pos);
 
-            if (out != null && depth < Cfg.MAX_DEPTH) {
-                color.x += out.obj.mat.r / distance;
-                color.y += out.obj.mat.g / distance;
-                color.z += out.obj.mat.b / distance;
-                compute_indirect_lighting(depth + 1, bounces, normal, pos, objects, distance + out.distance);
+            if (out != null && depth < Cfg.LIGHT_BOUNCES) {
+                distance += out.distance;
+                if (out.distance > Cfg.EPSILON) {
+                    // TODO balance this
+                    color.x += out.obj.mat.r / distance;
+                    color.y += out.obj.mat.g / distance;
+                    color.z += out.obj.mat.b / distance;
+                }
+                compute_indirect_lighting(depth + 1, bounces, normal, pos, objects, distance);
             }
         }
         return color;
@@ -155,7 +161,10 @@ public final class Camera extends Vertex3<Double> {
                         }
                     }
 
-                    Vertex3<Double> color = compute_indirect_lighting(0, 3, normal, pos, objects, Cfg.EPSILON);
+                    Vertex3<Double> color = compute_indirect_lighting(0, 10, normal, pos, objects, Cfg.EPSILON);
+                    buf[y][x][0] += color.x;
+                    buf[y][x][1] += color.y;
+                    buf[y][x][2] += color.z;
                 } else {
                     buf[y][x][0] = env.r * p;
                     buf[y][x][1] = env.g * p;
