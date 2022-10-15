@@ -8,8 +8,7 @@
    on my baby chromebook so your computer
    probably has enough memory to spare.
  */
-
-import org.jetbrains.annotations.Nullable;
+package rlib;
 
 // TODO Its squished because of how far the camera will see a ray (camera type)
 public final class Camera extends Vertex3<Double> {
@@ -56,7 +55,7 @@ public final class Camera extends Vertex3<Double> {
      * @return Returns -1 if not colliding (distance if colliding)
      * @param <T> An object
      */
-    @Nullable
+
     private <T extends Object> RayOut<T> raymarch(T[] objects, Vector3d v, double max_distance, Vertex3<Double> pos) throws NullPointerException {
         double total_distance = 0;
         while (true) {
@@ -81,6 +80,30 @@ public final class Camera extends Vertex3<Double> {
             }
             total_distance += distance;
         }
+    }
+
+    private <T extends Object> Vertex3<Double> compute_indirect_lighting(int depth, int bounces, Vector3d normal, Vertex3<Double> pos, T[] objects, double distance) throws NullPointerException {
+        Vertex3<Double> color = new Vertex3<>(0.0, 0.0, 0.0);
+        for (int i = 0; i < bounces; i++) {
+            // TODO vector generation is wrong...
+            Vector3d v = new Vector3d(
+                Math.random() * 2 - 1 - normal.x,
+                Math.random() * 2 - 1 - normal.y,
+                Math.random() - normal.z
+            );
+            v.normalize();
+            v.move(pos, Cfg.DEPTH_BIAS);
+
+            RayOut<T> out = raymarch(objects, v, this.view_distance, pos);
+
+            if (out != null && depth < Cfg.MAX_DEPTH) {
+                color.x += out.obj.mat.r / distance;
+                color.y += out.obj.mat.g / distance;
+                color.z += out.obj.mat.b / distance;
+                compute_indirect_lighting(depth + 1, bounces, normal, pos, objects, distance + out.distance);
+            }
+        }
+        return color;
     }
 
     /**
@@ -130,16 +153,9 @@ public final class Camera extends Vertex3<Double> {
                             buf[y][x][1] += (dif * light.g * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.g;
                             buf[y][x][2] += (dif * light.b * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.b;
                         }
-
-                        // Indirect lighting
-                        int depth = 0;
-                        while (depth < Cfg.MAX_BOUNCES) {
-                            for (int i = 0; i < (int) (Cfg.TOTAL_BOUNCES * out.obj.mat.roughness); i++) {
-                                // Make the ray TODO
-                            }
-                            depth++;
-                        }
                     }
+
+                    Vertex3<Double> color = compute_indirect_lighting(0, 3, normal, pos, objects, Cfg.EPSILON);
                 } else {
                     buf[y][x][0] = env.r * p;
                     buf[y][x][1] = env.g * p;

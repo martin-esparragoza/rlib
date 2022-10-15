@@ -1,3 +1,5 @@
+package rlib;
+
 public final class Material {
     public final double r;
     public final double g;

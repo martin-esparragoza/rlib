@@ -1,3 +1,5 @@
+package rlib;
+
 public final class Sphere extends Object {
     private final double radius;
 

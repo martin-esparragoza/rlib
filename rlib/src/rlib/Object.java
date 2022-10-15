@@ -1,3 +1,5 @@
+package rlib;
+
 public abstract class Object extends Vertex3<Double> {
     public final Material mat;
     public Object(double x, double y, double z, Material mat) {

@@ -1,3 +1,5 @@
+package rlib;
+
 public class Light extends Vertex3<Double> {
     public final double r;
     public final double g;

@@ -1,3 +1,5 @@
+package rlib;
+
 final class RayOut<T extends Object> {
     public final double distance;
     public final T obj;

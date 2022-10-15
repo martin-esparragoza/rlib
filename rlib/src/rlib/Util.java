@@ -1,3 +1,5 @@
+package rlib;
+
 public class Util {
     public static double distance(Vertex3<Double> p1, Vertex3<Double> p2) {
         return Math.sqrt(
@@ -9,11 +11,10 @@ public class Util {
 
     public static Vector3d reflect(Vector3d v, Vector3d normal) {
         double dp = normal.dot(v);
-        Vector3d rv = new Vector3d(
+        return new Vector3d(
                 v.x - 2.0 * dp * normal.x,
                 v.y - 2.0 * dp * normal.y,
                 v.z - 2.0 * dp * normal.z
         );
-        return rv;
     }
 }
