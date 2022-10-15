@@ -7,6 +7,8 @@
    0-1 doubles. This is able to run
    on my baby chromebook so your computer
    probably has enough memory to spare.
+ - Meant for progressive rendering so all color
+   operations are addition.
  */
 package rlib;
 
@@ -70,12 +72,12 @@ public final class Camera extends Vertex3<Double> {
                 }
             }
 
-            if (total_distance >= max_distance + Cfg.EPSILON) {
+            if (total_distance >= max_distance + Cfg.EPSILON || distance >= max_distance + Cfg.EPSILON) {
                 return null;
             }
+
             // We only need to check if it's intersecting with the closest object
             v.move(pos, distance);
-            // FIXME error at MANY rays
             if (closest_object.point_in(pos) || distance <= Cfg.EPSILON) {
                 return new RayOut<>(total_distance, closest_object, pos);
             }
@@ -102,11 +104,14 @@ public final class Camera extends Vertex3<Double> {
                 distance += out.distance;
                 if (out.distance > Cfg.EPSILON) {
                     // TODO balance this
-                    color.x += out.obj.mat.r / distance;
-                    color.y += out.obj.mat.g / distance;
-                    color.z += out.obj.mat.b / distance;
+                    color.x += out.obj.mat.r / distance / Math.pow(bounces, Cfg.BOUNCE_ROOT) * out.obj.mat.albedo;
+                    color.y += out.obj.mat.g / distance / Math.pow(bounces, Cfg.BOUNCE_ROOT) * out.obj.mat.albedo;
+                    color.z += out.obj.mat.b / distance / Math.pow(bounces, Cfg.BOUNCE_ROOT) * out.obj.mat.albedo;
                 }
-                compute_indirect_lighting(depth + 1, bounces, normal, pos, objects, distance);
+                Vertex3<Double> tcolor = compute_indirect_lighting(depth + 1, bounces, normal, pos, objects, distance);
+                color.x += tcolor.x;
+                color.y += tcolor.y;
+                color.z += tcolor.z;
             }
         }
         return color;
@@ -161,14 +166,14 @@ public final class Camera extends Vertex3<Double> {
                         }
                     }
 
-                    Vertex3<Double> color = compute_indirect_lighting(0, 10, normal, pos, objects, Cfg.EPSILON);
+                    Vertex3<Double> color = compute_indirect_lighting(0, (int)(Cfg.SAMPLES * out.obj.mat.roughness), normal, pos, objects, Cfg.EPSILON);
                     buf[y][x][0] += color.x;
                     buf[y][x][1] += color.y;
                     buf[y][x][2] += color.z;
                 } else {
-                    buf[y][x][0] = env.r * p;
-                    buf[y][x][1] = env.g * p;
-                    buf[y][x][2] = env.b * p;
+                    buf[y][x][0] += env.r * p;
+                    buf[y][x][1] += env.g * p;
+                    buf[y][x][2] += env.b * p;
                 }
             }
         }
