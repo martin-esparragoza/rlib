@@ -4,12 +4,30 @@ import java.io.FileWriter;
 import java.io.IOException;
 
 public final class Main {
+    public static class MyEnv implements Environment {
+        @Override
+        public double get_r(Vector3d v) {
+            return 1.0 * v.z;
+        }
+
+        @Override
+        public double get_g(Vector3d v) {
+            return 0.0;
+        }
+
+        @Override
+        public double get_b(Vector3d v) {
+            return 0.0;
+        }
+    }
+
+    // FIXME adding more frames makes the indirect lighting disapear... should I use gaussian distribution?
     public static final int frames = 60;
     public static void main(String[] args) throws IOException {
         // Clear the file
         new FileWriter("out.ppm", false).close();
         FileWriter fw = new FileWriter("out.ppm", true);
-        double[][][] buf = new double[800][800][3];
+        double[][][] buf = new double[500][500][3];
 
         Camera c = new Camera(0, 0, 0, 0, 0, 10, 10, 10, 500);
 
@@ -21,13 +39,13 @@ public final class Main {
                 buf,
                 new Sphere[]{
                         new Sphere(8, -2, 0, new Material(0.39, 0.88, 0.52, 1.0, 1.0), 1.5),
-                        new Sphere(9, 2, 0, new Material(0.53, 0.195, 0.91, 0.7, 0.6), 1.5)
+                        new Sphere(9, 2, 0, new Material(0.53, 0.195, 0.91, 0.7, 1.0), 1.5)
                 },
                 new Light[]{
                         new Light(-4.5, -4, 0.4, 1.0, 1.0, 0.87, 50.0),
                         new Light(2.5, 5, 0.5, 0.87, 1.0, 1.0, 81.0)
                 },
-                new Environment(0.61, 1.0, 0.78, 0.01)
+                new MyEnv()
             );
         }
         System.out.println();

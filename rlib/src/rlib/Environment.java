@@ -1,15 +1,9 @@
 package rlib;
 
-public final class Environment {
-    public final double r;
-    public final double g;
-    public final double b;
-    public final double strength;
+public interface Environment {
+    double get_r(Vector3d v);
 
-    public Environment(double r, double g, double b, double strength) {
-        this.r = r;
-        this.g = g;
-        this.b = b;
-        this.strength = strength;
-    }
+    double get_g(Vector3d v);
+
+    double get_b(Vector3d v);
 }

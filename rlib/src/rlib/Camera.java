@@ -57,7 +57,6 @@ public final class Camera extends Vertex3<Double> {
      * @return Returns -1 if not colliding (distance if colliding)
      * @param <T> An object
      */
-
     private <T extends Object> RayOut<T> raymarch(T[] objects, Vector3d v, double max_distance, Vertex3<Double> pos) throws NullPointerException {
         double total_distance = 0;
         while (true) {
@@ -72,6 +71,7 @@ public final class Camera extends Vertex3<Double> {
                 }
             }
 
+            // TODO write something on why there is the 2nd if statement
             if (total_distance >= max_distance + Cfg.EPSILON || distance >= max_distance + Cfg.EPSILON) {
                 return null;
             }
@@ -85,35 +85,104 @@ public final class Camera extends Vertex3<Double> {
         }
     }
 
-    private <T extends Object> Vertex3<Double> compute_indirect_lighting(int depth, int bounces, Vector3d normal, Vertex3<Double> pos, T[] objects, double distance) throws NullPointerException {
+    /**
+     * Handles all reflections. Is recursive with compute_color
+     * @param objects List of objects
+     * @param lights Lights to be passed to compute_color
+     * @param out Recursive last RayOut
+     * @param depth Depth when user called should be 0. Incrementing. Max value in Cfg.java
+     * @param distance Should be an epsilon when user called.
+     * @return Color value stored as a Vertex3
+     * @param <T> Object type
+     * @param <U> Light type
+     */
+    private <T extends Object, U extends Light> Vertex3<Double> compute_reflect_color(
+            T[] objects,
+            U[] lights,
+            RayOut<T> out,
+            int depth,
+            double distance
+        ) {
+        Vector3d normal = out.obj.normal(out.endpos);
         Vertex3<Double> color = new Vertex3<>(0.0, 0.0, 0.0);
-        for (int i = 0; i < bounces; i++) {
+        int samples = (int)(Cfg.SAMPLES * out.obj.mat.roughness);
+        for (int i = 0; i < samples; i++) {
             double p = Math.random() * (Math.PI / 2); // [0, pi/2] (Vertical hemisphere)
             double t = Math.random() * (2 * Math.PI); // [0, 2pi]
             Vector3d v = new Vector3d(
-                Math.sin(p) * Math.cos(t) + normal.x,
-                Math.sin(p) * Math.sin(t) + normal.y,
-                Math.cos(p) + normal.z
+                    Math.sin(p) * Math.cos(t) + normal.x,
+                    Math.sin(p) * Math.sin(t) + normal.y,
+                    Math.cos(p) + normal.z
             );
             v.normalize();
-            v.move(pos, Cfg.DEPTH_BIAS);
+            v.move(out.endpos, Cfg.DEPTH_BIAS);
 
-            RayOut<T> out = raymarch(objects, v, this.view_distance, pos);
+            // Indirect rayout
+            RayOut<T> id_out = raymarch(objects, v, this.view_distance, out.endpos);
 
-            if (out != null && depth < Cfg.LIGHT_BOUNCES) {
-                distance += out.distance;
-                if (out.distance > Cfg.EPSILON) {
-                    // TODO balance this
-                    color.x += out.obj.mat.r / distance / Math.pow(bounces, Cfg.BOUNCE_ROOT) * out.obj.mat.albedo;
-                    color.y += out.obj.mat.g / distance / Math.pow(bounces, Cfg.BOUNCE_ROOT) * out.obj.mat.albedo;
-                    color.z += out.obj.mat.b / distance / Math.pow(bounces, Cfg.BOUNCE_ROOT) * out.obj.mat.albedo;
-                }
-                Vertex3<Double> tcolor = compute_indirect_lighting(depth + 1, bounces, normal, pos, objects, distance);
-                color.x += tcolor.x;
-                color.y += tcolor.y;
-                color.z += tcolor.z;
+            if (id_out != null && depth < Cfg.LIGHT_BOUNCES) {
+                // Inverse square law
+                double pass_distance = distance + id_out.distance;
+                double isqrt = 1 / Math.pow(pass_distance, 2);
+                Vertex3<Double> tcolor = compute_color(objects, lights, id_out, depth + 1, pass_distance);
+                color.x += tcolor.x * isqrt;
+                color.y += tcolor.y * isqrt;
+                color.z += tcolor.z * isqrt;
             }
         }
+        return color;
+    }
+
+    /**
+     * The entire ray process in one function. In a function for recursive calls.
+     * @param objects Objects (for raymarch calls)
+     * @param lights Lights for base light calculations
+     * @param out (Primary or before) Ray output
+     * @return Color value in a vertex3
+     * @param <T> Object type
+     * @param <U> Light type
+     */
+    private <T extends Object, U extends Light> Vertex3<Double> compute_color(
+            T[] objects,
+            U[] lights,
+            RayOut<T> out,
+            int depth,
+            double distance
+        ) {
+        Vertex3<Double> color = new Vertex3<>(0.0, 0.0, 0.0);
+        Vector3d normal = out.obj.normal(out.endpos);
+
+        // Base shadings (diffuse, etc.)
+        for (U light : lights) {
+            // Vector from the endpoint to the light
+            Vector3d lv = new Vector3d(light.x - out.endpos.x, light.y - out.endpos.y, light.z - out.endpos.z);
+            lv.normalize();
+            Vertex3<Double> l_pos = new Vertex3<>(out.endpos);
+            lv.move(l_pos, Cfg.DEPTH_BIAS);
+
+            // Diffuse
+            double ldistance = Util.distance(light, l_pos);
+            RayOut<T> out_l = raymarch(objects, lv, ldistance, l_pos);
+            double dif = lv.dot(normal);
+            if (dif < Cfg.EPSILON) {
+                dif = 0.0;
+            }
+
+            if (out_l == null) {
+                // TODO hmm...
+                color.x += (dif * light.r * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.r;
+                color.y += (dif * light.g * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.g;
+                color.z += (dif * light.b * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.b;
+            }
+        }
+
+        // Reflections (indirect, reflective surfaces, etc.)
+        // Indirect lighting
+        Vertex3<Double> tcolor = compute_reflect_color(objects, lights, out, depth, distance);
+        color.x += tcolor.x;
+        color.y += tcolor.y;
+        color.z += tcolor.z;
+
         return color;
     }
 
@@ -126,7 +195,7 @@ public final class Camera extends Vertex3<Double> {
      * @param <T> Child class
      * @throws NullPointerException
      */
-    public <T extends Object> double[][][] render(double[][][] buf, T[] objects, Light[] lights, Environment env) throws NullPointerException {
+    public <T extends Object, U extends Light, V extends Environment> double[][][] render(double[][][] buf, T[] objects, U[] lights, V env) throws NullPointerException {
         final double pm = Math.atan((this.aspecth / 2f) / fov);
         final double tm = Math.atan((this.aspectw / 2f) / fov);
 
@@ -144,36 +213,14 @@ public final class Camera extends Vertex3<Double> {
                 Vertex3<Double> pos = new Vertex3<>(this);
                 RayOut<T> out = raymarch(objects, v, this.view_distance, pos);
                 if (out != null) {
-                    Vector3d normal = out.obj.normal(out.endpos);
-                    for (Light light : lights) {
-                        Vector3d lv = new Vector3d(light.x - pos.x, light.y - pos.y, light.z - pos.z);
-                        lv.normalize();
-                        Vertex3<Double> l_pos = new Vertex3<>(pos);
-                        lv.move(l_pos, Cfg.DEPTH_BIAS);
-
-                        // Diffuse
-                        double ldistance = Util.distance(light, l_pos);
-                        RayOut<T> out_l = raymarch(objects, lv, ldistance, l_pos);
-                        double dif = lv.dot(normal);
-                        if (dif < Cfg.EPSILON) {
-                            dif = 0.0;
-                        }
-
-                        if (out_l == null) {
-                            buf[y][x][0] += (dif * light.r * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.r;
-                            buf[y][x][1] += (dif * light.g * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.g;
-                            buf[y][x][2] += (dif * light.b * (light.intensity / Math.pow(ldistance, 2)) * out.obj.mat.albedo) * out.obj.mat.b;
-                        }
-                    }
-
-                    Vertex3<Double> color = compute_indirect_lighting(0, (int)(Cfg.SAMPLES * out.obj.mat.roughness), normal, pos, objects, Cfg.EPSILON);
+                    Vertex3<Double> color = compute_color(objects, lights, out, 0, Cfg.EPSILON);
                     buf[y][x][0] += color.x;
                     buf[y][x][1] += color.y;
                     buf[y][x][2] += color.z;
                 } else {
-                    buf[y][x][0] += env.r * p;
-                    buf[y][x][1] += env.g * p;
-                    buf[y][x][2] += env.b * p;
+                    buf[y][x][0] += env.get_r(v);
+                    buf[y][x][1] += env.get_g(v);
+                    buf[y][x][2] += env.get_b(v);
                 }
             }
         }
