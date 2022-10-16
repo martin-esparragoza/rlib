@@ -23,9 +23,9 @@ public final class Camera extends Vertex3<Double> {
 
     /**
      * Create a new camera in the world.
-     * @param x
-     * @param y
-     * @param z
+     * @param x X position
+     * @param y Y position
+     * @param z Z position
      * @param fov Distance from the origin to the view plane
      * @param aspectw Aspect ratio width
      * @param aspecth Aspect ratio height
