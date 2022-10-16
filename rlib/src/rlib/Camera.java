@@ -110,12 +110,16 @@ public final class Camera extends Vertex3<Double> {
             double p = Math.random() * (Math.PI / 2); // [0, pi/2] (Vertical hemisphere)
             double t = Math.random() * (2 * Math.PI); // [0, 2pi]
             Vector3d v = new Vector3d(
-                    Math.sin(p) * Math.cos(t) + normal.x,
-                    Math.sin(p) * Math.sin(t) + normal.y,
-                    Math.cos(p) + normal.z
+                Math.sin(p) * Math.cos(t),
+                Math.sin(p) * Math.sin(t),
+                Math.cos(p)
             );
+            double dp = normal.dot(v);
+            v.x *= dp;
+            v.y *= dp;
+            v.z *= dp;
             v.normalize();
-            v.move(out.endpos, Cfg.DEPTH_BIAS);
+            v.move(out.endpos, Cfg.REFLECT_BIAS);
 
             // Indirect rayout
             RayOut<T> id_out = raymarch(objects, v, this.view_distance, out.endpos);
@@ -158,7 +162,7 @@ public final class Camera extends Vertex3<Double> {
             Vector3d lv = new Vector3d(light.x - out.endpos.x, light.y - out.endpos.y, light.z - out.endpos.z);
             lv.normalize();
             Vertex3<Double> l_pos = new Vertex3<>(out.endpos);
-            lv.move(l_pos, Cfg.DEPTH_BIAS);
+            lv.move(l_pos, Cfg.SHADOW_BIAS);
 
             // Diffuse
             double ldistance = Util.distance(light, l_pos);

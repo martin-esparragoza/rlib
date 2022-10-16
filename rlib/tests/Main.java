@@ -27,7 +27,7 @@ public final class Main {
         // Clear the file
         new FileWriter("out.ppm", false).close();
         FileWriter fw = new FileWriter("out.ppm", true);
-        double[][][] buf = new double[500][500][3];
+        double[][][] buf = new double[800][800][3];
 
         Camera c = new Camera(0, 0, 0, 0, 0, 10, 10, 10, 500);
 
@@ -38,12 +38,12 @@ public final class Main {
             c.render(
                 buf,
                 new Sphere[]{
-                        new Sphere(8, -2, 0, new Material(0.39, 0.88, 0.52, 1.0, 1.0), 1.5),
+                        new Sphere(8, -2, 0, new Material(0.39, 0.88, 0.52, 1.0, 0.0), 1.5),
                         new Sphere(9, 2, 0, new Material(0.53, 0.195, 0.91, 0.7, 1.0), 1.5)
                 },
                 new Light[]{
                         new Light(-4.5, -4, 0.4, 1.0, 1.0, 0.87, 50.0),
-                        new Light(2.5, 5, 0.5, 0.87, 1.0, 1.0, 81.0)
+                        new Light(2.5, 5, 0.5, 1.0, 0.3, 0.0, 81.0)
                 },
                 new MyEnv()
             );
