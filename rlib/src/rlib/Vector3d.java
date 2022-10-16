@@ -1,3 +1,5 @@
+package rlib;
+
 /**
  * A 3d vertex using the double type (the d at the end refers to this)
  */
@@ -41,5 +43,20 @@ public final class Vector3d extends Vertex3<Double> {
 
     public double dot(Vector3d v) {
         return v.x * this.x + v.y * this.y + v.z * this.z;
+    }
+
+    /**
+     * Reflect off a surface
+     * @param v Target vector to reflect
+     * @param n Surface normal
+     * @return Reflected vector
+     */
+    public Vector3d reflect(Vector3d v, Vector3d n) {
+        double dp = v.dot(n);
+        return new Vector3d(
+            v.x - (2 * dp) * n.x,
+            v.y - (2 * dp) * n.y,
+            v.z - (2 * dp) * n.z
+        );
     }
 }

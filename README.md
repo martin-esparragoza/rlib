@@ -2,11 +2,13 @@
 Baby toy project to learn Java. Not meant to be optimized (and not even close to real time territory).
 
 ### Baby todo
-* [ ] Camera
+* [X] Camera
   * [X] Primary ray creation
-  * [ ] Rotation
+  * [X] Rotation
 * [ ] Lighting
   * [X] Shadows
+  * [X] Indirect lighting
   * [ ] Reflections
   * [ ] Materials
   * [ ] Other light things
+  * [ ] DOCUMENT!

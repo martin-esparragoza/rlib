@@ -1,3 +1,5 @@
+package rlib;
+
 public class Vertex3<T extends Number> {
     public T x;
     public T y;
